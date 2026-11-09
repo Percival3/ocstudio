@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.tsbuildinfo
+test-results/
+playwright-report/
+.local/
+OC-Studio-*.json
+.env
+.env.*
+!.env.example
