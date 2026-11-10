@@ -52,6 +52,12 @@ export function Inspector({ board, node, edge, close, select, notify, preview }:
         else studio.updateBoard(b => ({ ...b, edges: b.edges.map(item => item.id === edge!.id ? { ...item, label: value } : item) }), `edge-${edge!.id}`);
       }} /></label>
       {edge && <><label className="input-label">方向<select aria-label="关系方向" value={edge.directed ? 'directed' : 'none'} onChange={e => studio.updateBoard(b => ({ ...b, edges: b.edges.map(item => item.id === edge.id ? { ...item, directed: e.target.value === 'directed' } : item) }))}><option value="none">无箭头</option><option value="directed">单向箭头</option></select></label><div className="relation-endpoints">{[edge.source, edge.target].map((id, i) => <div key={`${id}-${i}`}><span>{i ? '连接至' : '从'}</span><button onClick={() => select(id)}>{board.nodes.find(n => n.id === id)?.data.title || '未命名节点'}<ArrowUpRight size={13} /></button></div>)}</div><p className="help-text">关系从起点指向终点。可在同一对节点间绘制多条连线，表达不同关系。</p></>}
+      {edge && <>
+        <p className="help-text">拖动关系标签下方的把手，可以调整曲线走向。</p>
+        {edge.bend && <button className="text-button" onClick={() => studio.updateBoard(b => ({
+          ...b, edges: b.edges.map(item => item.id === edge.id ? { ...item, bend: undefined } : item),
+        }))}>恢复默认曲线</button>}
+      </>}
       {card && <>
         <section className="inspector-section"><div className="section-heading"><h3>图像</h3><span>{card.images.length || '可选'}</span></div>
           <input ref={upload} type="file" accept={imageTypes.join(',')} multiple hidden aria-label="上传图片" onChange={e => void uploadImages(e.target.files)} />

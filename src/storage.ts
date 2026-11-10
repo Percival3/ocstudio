@@ -1,6 +1,6 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import { z } from 'zod';
-import { type Workspace, type Asset, referencedAssetIds, validateWorkspace } from './model';
+import { type Workspace, type Board, type Asset, referencedAssetIds, validateWorkspace } from './model';
 
 interface StudioDB extends DBSchema {
   workspace: { key: string; value: Workspace };
@@ -52,10 +52,11 @@ export class SaveQueue {
 }
 const backupSchema = z.object({
   format: z.literal('oc-studio'), version: z.literal(1), exportedAt: z.string(), workspace: z.unknown(),
+  scope: z.literal('board').optional(),
   assets: z.array(z.object({ id: z.string().min(1), name: z.string(), type: z.enum(['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif']), base64: z.string() })),
 });
 export const imageTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif'];
-export async function exportBackup(workspace: Workspace, assets: Asset[]): Promise<string> {
+export async function exportBackup(workspace: Workspace, assets: Asset[], scope?: 'board'): Promise<string> {
   const ids = referencedAssetIds(workspace);
   const embedded = await Promise.all(assets.filter(a => ids.has(a.id)).map(async a => {
     const bytes = new Uint8Array(await a.blob.arrayBuffer());
@@ -64,9 +65,14 @@ export async function exportBackup(workspace: Workspace, assets: Asset[]): Promi
     return { id: a.id, name: a.name, type: a.blob.type, base64: btoa(binary) };
   }));
   validateWorkspace(workspace, new Set(embedded.map(a => a.id)));
-  return JSON.stringify({ format: 'oc-studio', version: 1, exportedAt: new Date().toISOString(), workspace, assets: embedded });
+  return JSON.stringify({ format: 'oc-studio', version: 1, scope, exportedAt: new Date().toISOString(), workspace, assets: embedded });
 }
-export function parseBackup(text: string): { workspace: Workspace; assets: Asset[] } {
+
+export function exportBoardFile(board: Board, assets: Asset[]) {
+  return exportBackup({ version: 1, activeBoardId: board.id, boards: [{ ...board, categoryId: null }], categories: [] }, assets, 'board');
+}
+
+export function parseBackup(text: string): { workspace: Workspace; assets: Asset[]; scope?: 'board' } {
   const data = backupSchema.parse(JSON.parse(text));
   const ids = new Set(data.assets.map(a => a.id));
   if (ids.size !== data.assets.length) throw new Error('备份包含重复图片 ID');
@@ -75,5 +81,7 @@ export function parseBackup(text: string): { workspace: Workspace; assets: Asset
     const bytes = Uint8Array.from(atob(a.base64), c => c.charCodeAt(0));
     return { id: a.id, name: a.name, blob: new Blob([bytes], { type: a.type }) };
   });
-  return { workspace: validateWorkspace(data.workspace, ids), assets };
+  const workspace = validateWorkspace(data.workspace, ids);
+  if (data.scope === 'board' && workspace.boards.length !== 1) throw new Error('画布文件应包含一张画布');
+  return { workspace, assets, scope: data.scope };
 }

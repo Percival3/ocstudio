@@ -73,6 +73,8 @@ svg { flex-shrink: 0; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .toolbar-divider { width: 1px; height: 18px; background: var(--line); }
 .toolbar-button { color: #7d8b98; font-size: 12px; padding: 7px 0; }
+.local-save-button { color: #3d6472; white-space: nowrap; }
+.local-save-button[aria-busy='true'] svg { animation: spin 1.8s linear infinite; }
 .primary, .secondary, .danger-button { border-radius: 6px; padding: 10px 15px; font-size: 12px; font-weight: 500; border: 1px solid transparent; }
 .primary { background: #3d6472; color: #fff; box-shadow: 0 1px 2px #1d44551a; }
 .primary:hover { background: #315765; }
@@ -131,8 +133,12 @@ kbd { font-family: inherit; border: 1px solid #e3e8ec; border-radius: 3px; font-
 .world-card .react-flow__handle { background: #fff; border: 1px solid #9dafba; width: 7px; height: 7px; opacity: 0; transition: opacity .15s; }
 .world-card:hover .react-flow__handle, .world-card.is-selected .react-flow__handle, .react-flow.connecting .react-flow__handle { opacity: 1; }
 .world-card .react-flow__handle::after { content: ''; position: absolute; inset: -8px; }
-.edge-label { position: absolute; pointer-events: all; background: #fcfdfe; color: #8c9aa7; border: 1px solid #e9eef2; padding: 4px 10px; border-radius: 12px; max-width: 180px; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.edge-label-anchor { position: absolute; left: 0; top: 0; display: grid; justify-items: center; translate: -50% -50%; }
+.edge-label { pointer-events: all; background: #fcfdfe; color: #8c9aa7; border: 1px solid #e9eef2; padding: 4px 10px; border-radius: 12px; max-width: 180px; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
 .edge-label.selected { border-color: #8dafba; color: #427786; }
+.edge-bend-handle { position: absolute; top: calc(100% + 4px); width: 24px; height: 24px; pointer-events: auto; touch-action: none; cursor: grab; border: 1px solid #a5bec8; border-radius: 6px; background: #fff; color: #477c88; }
+.edge-bend-handle:hover, .edge-bend-handle:active { background: #edf4f5; }
+.edge-bend-handle:active { cursor: grabbing; }
 .react-flow__edgelabel-renderer { z-index: 2001; }
 .timeline-card { width: 100%; background: #fff; border: 1px solid #dfe6ec; border-radius: 9px; height: 240px; box-shadow: 0 3px 8px #31465905; }
 .timeline-drag { display: flex; align-items: center; padding: 17px 20px; gap: 9px; border-bottom: 1px solid #f0f3f5; color: #8094a3; cursor: grab; height: 56px; }

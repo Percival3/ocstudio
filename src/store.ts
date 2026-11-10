@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { type Asset, type Board, type CanvasNode, type Workspace, newWorkspace, uid, removeNodes } from './model';
+import { type Asset, type Board, type CanvasNode, type Workspace, appendWorkspace, newWorkspace, uid, removeNodes } from './model';
 import { Repository, SaveQueue } from './storage';
 
 export type SaveStatus = 'loading' | 'saving' | 'saved' | 'error';
@@ -116,16 +116,28 @@ export class StudioStore {
         this.savedRevision = revision;
         if (revision === this.revision) this.emit({ status: 'saved', error: '' });
       } catch (error) {
-        this.emit({ status: 'error', error: `保存失败，请检查磁盘空间或导出备份。${String(error)}` });
+        this.emit({ status: 'error', error: `自动保存失败，请检查磁盘空间或保存到本地文件。${String(error)}` });
         throw error;
       }
     });
   }
   async restore(workspace: Workspace, assets: Asset[]) {
     clearTimeout(this.timer);
-    await this.queue.enqueue(() => this.repository.save(workspace, assets, true));
-    this.urls.forEach(url => URL.revokeObjectURL(url)); this.urls.clear();
-    this.assets = new Map(assets.map(a => [a.id, a]));
+    await this.commitWorkspace(workspace, assets, true);
+  }
+  async importWorkspace(incoming: Workspace, images: Asset[], fileTitle: string) {
+    await this.flush();
+    const { workspace, assets } = appendWorkspace(this.state.workspace, incoming, images, fileTitle);
+    await this.commitWorkspace(workspace, assets, false);
+  }
+  private async commitWorkspace(workspace: Workspace, assets: Asset[], replace: boolean) {
+    await this.queue.enqueue(() => this.repository.save(workspace, assets, replace));
+    if (replace) {
+      this.urls.forEach(url => URL.revokeObjectURL(url));
+      this.urls.clear();
+      this.assets.clear();
+    }
+    this.putAssets(assets);
     this.past = []; this.future = []; this.lastEdit.key = ''; this.gesture = undefined;
     this.revision++; this.savedRevision = this.revision;
     this.emit({ workspace, status: 'saved', ready: true, error: '', session: this.state.session + 1 });

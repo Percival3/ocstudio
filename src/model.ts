@@ -12,7 +12,7 @@ const timelineSchema = z.object({ kind: z.literal('timeline'), title: z.string()
 export const nodeSchema = z.object({ id, position: point, width: z.number().finite().min(400).max(4000).optional(), data: z.discriminatedUnion('kind', [cardSchema, timelineSchema]) });
 export const boardSchema = z.object({
   id, title: z.string(), categoryId: id.nullable(), nodes: z.array(nodeSchema),
-  edges: z.array(z.object({ id, source: id, target: id, sourceHandle: z.string().nullable().optional(), targetHandle: z.string().nullable().optional(), label: z.string(), directed: z.boolean() })),
+  edges: z.array(z.object({ id, source: id, target: id, sourceHandle: z.string().nullable().optional(), targetHandle: z.string().nullable().optional(), label: z.string(), directed: z.boolean(), bend: point.optional() })),
   viewport: point.extend({ zoom: z.number().finite().min(0.1).max(2) }),
 });
 export const workspaceSchema = z.object({
@@ -69,6 +69,44 @@ export function reorder<T>(items: T[], from: number, to: number): T[] {
 export function referencedAssetIds(workspace: Workspace): Set<string> {
   return new Set(workspace.boards.flatMap(b => b.nodes.flatMap(n => n.data.kind === 'timeline' ? [] : n.data.images)));
 }
+
+export function appendWorkspace(current: Workspace, incoming: Workspace, images: Asset[], fileTitle: string) {
+  const categoryIds = new Map(incoming.categories.map(category => [category.id, uid()]));
+  const categories = incoming.categories.map(category => ({
+    id: categoryIds.get(category.id)!, title: `${category.title}（导入）`,
+  }));
+  const uncategorized = uid();
+  if (incoming.boards.some(board => board.categoryId === null)) {
+    categories.push({ id: uncategorized, title: `导入 · ${fileTitle}` });
+  }
+  const usedImages = referencedAssetIds(incoming);
+  const imageIds = new Map(images.filter(asset => usedImages.has(asset.id)).map(asset => [asset.id, uid()]));
+  const boardIds = new Map(incoming.boards.map(board => [board.id, uid()]));
+  const boards = incoming.boards.map(board => ({
+    ...board,
+    id: boardIds.get(board.id)!,
+    categoryId: board.categoryId ? categoryIds.get(board.categoryId)! : uncategorized,
+    // Nodes and their relations are scoped to their own board.
+    nodes: board.nodes.map(node => node.data.kind === 'timeline' ? node : {
+      ...node,
+      data: {
+        ...node.data,
+        images: node.data.images.map(image => imageIds.get(image)!),
+        coverId: node.data.coverId ? imageIds.get(node.data.coverId) : undefined,
+      },
+    }),
+  }));
+  return {
+    workspace: {
+      ...current,
+      categories: [...current.categories, ...categories],
+      boards: [...current.boards, ...boards],
+      activeBoardId: boardIds.get(incoming.activeBoardId)!,
+    },
+    assets: images.filter(asset => imageIds.has(asset.id)).map(asset => ({ ...asset, id: imageIds.get(asset.id)! })),
+  };
+}
+
 export function validateWorkspace(input: unknown, assetIds: Set<string>): Workspace {
   const workspace = workspaceSchema.parse(input);
   const unique = (ids: string[]) => { if (new Set(ids).size !== ids.length) throw new Error('备份包含重复 ID'); };
